@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC Screen Sharing Viewer</title>
+    <style>
+      /* Styles remain unchanged except retry-related elements are omitted */
+      :root {
+        --primary: #4a6fa5;
+        --secondary: #166088;
+        --dark: #2c3e50;
+        --light: #ecf0f1;
+        --success: #27ae60;
+        --danger: #e74c3c;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        color: var(--light);
+        line-height: 1.6;
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+      }
+
+      header {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .status-bar {
+        background: var(--dark);
+        padding: 15px 25px;
+        display: flex;
+        justify-content: space-between;
+        color: white;
+      }
+
+      .status-indicator {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #ccc;
+      }
+
+      .status-indicator.connected {
+        background: var(--success);
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.7;
+        }
+      }
+
+      .content {
+        display: flex;
+        flex-direction: column;
+        padding: 30px;
+      }
+
+      .control-panel {
+        margin-bottom: 25px;
+      }
+
+      input,
+      button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 10px;
+        border-radius: 8px;
+        font-size: 16px;
+      }
+
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      button.disconnect {
+        background: var(--danger);
+      }
+
+      .call-controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .video-container {
+        flex: 2;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        min-height: 400px;
+        position: relative;
+      }
+
+      #remoteVideo {
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+
+      .placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #aaa;
+        background: #111;
+      }
+
+      .log {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 30px;
+        max-height: 250px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.95rem;
+      }
+
+      .log-entry {
+        margin-bottom: 10px;
+      }
+
+      footer {
+        text-align: center;
+        padding: 25px;
+        color: #777;
+        font-size: 1rem;
+        background: #f8f9fa;
+      }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Screen Sharing Viewer</h1>
+        <p class="subtitle">View Android screen shares in real-time</p>
+      </header>
+
+      <div class="status-bar">
+        <div class="status">
+          <div class="status-indicator" id="connectionStatus"></div>
+          <span id="statusText">Disconnected from server</span>
+        </div>
+        <div>Signaling Server: RTDB</div>
+      </div>
+
+      <div class="content">
+        <div class="control-panel">
+          <label for="username">Viewer ID</label>
+          <input type="text" id="username" value="computer" />
+
+          <label for="target">Streamer ID</label>
+          <input type="text" id="target" value="android-device" />
+
+          <button id="requestBtn" disabled>Request Screen Share</button>
+          <div class="call-controls">
+            <button id="disconnectBtn" class="disconnect" disabled>
+              End Viewing
+            </button>
+          </div>
+        </div>
+
+        <div class="video-container">
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div class="placeholder" id="videoPlaceholder">
+            No active screen share
+          </div>
+        </div>
+      </div>
+
+      <div class="log">
+        <div class="log-entry">[System] Connection log:</div>
+        <div id="logContainer"></div>
+      </div>
+
+      <footer>
+        WebRTC Screen Sharing Viewer | Compatible with Android app
+      </footer>
+    </div>
+
+    <script>
+      // --- FIREBASE CONFIG ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyBpO0ReUf7r6QrjX1kMG7Yv0chl-nVuRok",
+        authDomain: "screenshareserver-c7ec1.firebaseapp.com",
+        databaseURL:
+          "https://screenshareserver-c7ec1-default-rtdb.firebaseio.com",
+        projectId: "screenshareserver-c7ec1",
+        storageBucket: "screenshareserver-c7ec1.appspot.com",
+        messagingSenderId: "779415078321",
+        appId: "1:779415078321:web:f07be1fb25e0eea9b32990",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const database = firebase.database();
+
+      // --- ICE / TURN configuration ---
+      const PC_CONFIG = {
+        iceServers: [
+          {
+            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+        ],
+      };
+
+      // --- UI REFS ---
+      const connectionStatus = document.getElementById("connectionStatus");
+      const statusText = document.getElementById("statusText");
+      const requestBtn = document.getElementById("requestBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const usernameInput = document.getElementById("username");
+      const targetInput = document.getElementById("target");
+      const remoteVideo = document.getElementById("remoteVideo");
+      const videoPlaceholder = document.getElementById("videoPlaceholder");
+      const logContainer = document.getElementById("logContainer");
+
+      // --- STATE VARS ---
+      let socket; // RTDB ref
+      let peerConnection;
+      let localUsername = "computer";
+      let targetUsername = "android-device";
+
+      const DataModelType = {
+        SignIn: "SignIn",
+        StartStreaming: "StartStreaming",
+        Offer: "Offer",
+        Answer: "Answer",
+        IceCandidates: "IceCandidates",
+        EndCall: "EndCall",
+        PermGranted: "PermGranted",
+      };
+
+      function init() {
+        addEventListeners();
+        connectToServer();
+      }
+
+      function addEventListeners() {
+        requestBtn.addEventListener("click", requestScreenShare);
+        disconnectBtn.addEventListener("click", disconnect);
+      }
+
+      function connectToServer() {
+        localUsername = usernameInput.value.trim();
+        if (!localUsername) {
+          log("Please enter your viewer ID", "error");
+          return;
+        }
+
+        log("Connecting to Firebase RTDB…", "info");
+        updateUI("connecting");
+
+        // sendToFirebase({
+        //   type: DataModelType.SignIn,
+        //   username: localUsername,
+        //   target: targetUsername,
+        //   data: null,
+        // });
+
+        listenForMessages(targetUsername);
+        updateUI("connected");
+      }
+
+      function sendToFirebase(msg) {
+        try {
+          database.ref(`signals/${msg.target || msg.username}`).push(msg);
+          log(`Sent: ${msg.type}`);
+        } catch (e) {
+          log(`Failed to send message: ${e.message}`, "error");
+        }
+      }
+
+      function listenForMessages(user) {
+        firebaseRef = database.ref(`signals/${user}`);
+        firebaseRef.off(); // detach previous listener
+
+        firebaseRef.on("value", (snapshot) => {
+          const msg = snapshot.val();
+
+          console.log(msg);
+          if (!msg) return;
+
+          if (msg.target == localUsername || "browser")
+            handleSignalingMessage(msg);
+
+          // Clean up after processing
+          snapshot.ref.remove();
+        });
+      }
+
+      function sendSignal(msg) {
+        database
+          .ref(`signals/${msg.target}`)
+          .set(msg)
+          .catch((err) => log("Firebase write error: " + err.message, "error"));
+      }
+
+      function handleSignalingMessage(data) {
+        switch (data.type) {
+          case DataModelType.Offer:
+            handleOffer(data);
+            break;
+          case DataModelType.Answer:
+            handleAnswer(data);
+            break;
+          case DataModelType.IceCandidates:
+            addIceCandidate(data.data);
+            break;
+          case DataModelType.EndCall:
+            log("Screen share ended by streamer", "info");
+            resetConnection();
+            updateUI("connected");
+            break;
+          case DataModelType.PermGranted:
+            alert("");
+            setTimeout(() => {
+              requestScreenShare();
+            }, 2000);
+
+            break;
+        }
+      }
+
+      function requestScreenShare() {
+        targetUsername = targetInput.value.trim();
+        if (!targetUsername) {
+          log("Enter Android streamer ID", "error");
+          return;
+        }
+
+        sendSignal({
+          type: DataModelType.StartStreaming,
+          username: localUsername,
+          target: targetUsername,
+          data: "",
+        });
+
+        log(`→ ${DataModelType.StartStreaming}`);
+      }
+
+      function handleOffer(data) {
+        createPeerConnection();
+        peerConnection
+          .setRemoteDescription(
+            new RTCSessionDescription({ type: "offer", sdp: data.data })
+          )
+          .then(() => peerConnection.createAnswer())
+          .then((answer) => {
+            peerConnection.setLocalDescription(answer);
+            sendSignal({
+              type: DataModelType.Answer,
+              username: localUsername,
+              target: targetUsername,
+              data: answer.sdp,
+            });
+            log(`→ ${DataModelType.Answer}`);
+          })
+          .catch((err) => log("Offer handling error: " + err, "error"));
+      }
+
+      function handleAnswer(data) {
+        peerConnection.setRemoteDescription(
+          new RTCSessionDescription({ type: "answer", sdp: data.data })
+        );
+      }
+
+      function addIceCandidate(candidate) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+
+      function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(PC_CONFIG);
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            sendSignal({
+              type: DataModelType.IceCandidates,
+              username: localUsername,
+              target: targetUsername,
+              data: event.candidate,
+            });
+            log(`→ ${DataModelType.IceCandidates}`);
+          }
+        };
+        peerConnection.ontrack = (event) => {
+          remoteVideo.srcObject = event.streams[0];
+          videoPlaceholder.style.display = "none";
+        };
+      }
+
+      function disconnect() {
+        if (targetUsername) {
+          sendSignal({
+            type: DataModelType.EndCall,
+            username: localUsername,
+            target: targetUsername,
+            data: "",
+          });
+          log(`→ ${DataModelType.EndCall}`);
+        }
+        resetConnection();
+        updateUI("connected");
+      }
+
+      function resetConnection() {
+        if (peerConnection) {
+          peerConnection.close();
+          peerConnection = null;
+        }
+        remoteVideo.srcObject = null;
+        videoPlaceholder.style.display = "flex";
+      }
+
+      function updateUI(state) {
+        if (state === "connected") {
+          connectionStatus.className = "status-indicator connected";
+          statusText.textContent = `Connected as ${localUsername}`;
+          requestBtn.disabled = false;
+          disconnectBtn.disabled = false;
+        } else {
+          connectionStatus.className = "status-indicator";
+          statusText.textContent = "Disconnected from server";
+          requestBtn.disabled = true;
+          disconnectBtn.disabled = true;
+        }
+      }
+
+      function log(message, type = "info") {
+        const entry = document.createElement("div");
+        entry.className = `log-entry ${type}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logContainer.appendChild(entry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>
