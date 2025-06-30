@@ -3,124 +3,289 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebRTC Screen Sharing Viewer</title>
+    <title>Modern Screen Sharing Viewer</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-      /* Styles remain unchanged except retry-related elements are omitted */
       :root {
-        --primary: #4a6fa5;
-        --secondary: #166088;
-        --dark: #2c3e50;
-        --light: #ecf0f1;
-        --success: #27ae60;
-        --danger: #e74c3c;
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary: #10b981;
+        --dark: #0f172a;
+        --darker: #0b1120;
+        --card-bg: rgba(15, 23, 42, 0.7);
+        --light: #f1f5f9;
+        --light-muted: #94a3b8;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --border: rgba(148, 163, 184, 0.2);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       }
 
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        background: linear-gradient(135deg, #0f172a, #1e293b);
         color: var(--light);
-        line-height: 1.6;
-        padding: 20px;
         min-height: 100vh;
+        padding: 1.5rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(
+          circle at 10% 20%,
+          rgba(99, 102, 241, 0.1) 0%,
+          rgba(15, 23, 42, 0) 50%
+        );
+        z-index: -1;
       }
 
       .container {
+        width: 100%;
         max-width: 1200px;
-        margin: 0 auto;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 16px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        background: var(--card-bg);
+        backdrop-filter: blur(12px);
+        border-radius: 1.5rem;
         overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
       }
 
       header {
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-        color: white;
-        padding: 30px;
-        text-align: center;
+        padding: 1.5rem 2rem;
+        background: linear-gradient(
+          90deg,
+          var(--darker),
+          rgba(15, 23, 42, 0.8)
+        );
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .logo-icon {
+        background: var(--primary-dark);
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .logo-icon i {
+        font-size: 1.25rem;
+      }
+
+      .logo-text h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .logo-text p {
+        font-size: 0.875rem;
+        color: var(--light-muted);
       }
 
       .status-bar {
-        background: var(--dark);
-        padding: 15px 25px;
         display: flex;
-        justify-content: space-between;
-        color: white;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 2rem;
+        border: 1px solid var(--border);
       }
 
       .status-indicator {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
-        background: #ccc;
+        background: #94a3b8;
       }
 
       .status-indicator.connected {
         background: var(--success);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 1);
         animation: pulse 1.5s infinite;
       }
 
       @keyframes pulse {
         0% {
-          opacity: 0.7;
+          transform: scale(0.95);
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
         }
-        50% {
-          opacity: 1;
+        70% {
+          transform: scale(1);
+          box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
         }
         100% {
-          opacity: 0.7;
+          transform: scale(0.95);
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
         }
+      }
+
+      .status-text {
+        font-size: 0.875rem;
+        font-weight: 500;
       }
 
       .content {
         display: flex;
-        flex-direction: column;
-        padding: 30px;
+        flex-wrap: wrap;
+        padding: 1.5rem;
+        gap: 1.5rem;
       }
 
-      .control-panel {
-        margin-bottom: 25px;
-      }
-
-      input,
-      button {
-        width: 100%;
-        padding: 14px;
-        margin-top: 10px;
-        border-radius: 8px;
-        font-size: 16px;
-      }
-
-      button {
-        background: var(--primary);
-        color: white;
-        border: none;
-        cursor: pointer;
-        font-weight: bold;
-      }
-
-      button.disconnect {
-        background: var(--danger);
-      }
-
-      .call-controls {
+      .panel {
+        flex: 1;
+        min-width: 300px;
         display: flex;
-        gap: 10px;
-        margin-top: 15px;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .card {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1.5rem;
+      }
+
+      .card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+
+      .card-title i {
+        color: var(--primary);
+      }
+
+      .form-group {
+        margin-bottom: 1.25rem;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--light-muted);
+      }
+
+      input {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        background: rgba(2, 6, 23, 0.5);
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        color: var(--light);
+        font-size: 0.9375rem;
+        transition: all 0.3s ease;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+
+      button {
+        flex: 1;
+        padding: 0.875rem 1.25rem;
+        border-radius: 0.75rem;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button:not(:disabled):hover {
+        transform: translateY(-2px);
+      }
+
+      #requestBtn {
+        background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+        color: white;
+      }
+
+      #requestBtn:not(:disabled):hover {
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+      }
+
+      #disconnectBtn {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--danger);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
+
+      #disconnectBtn:not(:disabled):hover {
+        background: rgba(239, 68, 68, 0.25);
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1);
       }
 
       .video-container {
         flex: 2;
-        background: #000;
-        border-radius: 12px;
+        min-width: 500px;
+        border-radius: 1rem;
         overflow: hidden;
-        min-height: 400px;
         position: relative;
+        background: rgba(2, 6, 23, 0.5);
+        border: 1px solid var(--border);
       }
 
       #remoteVideo {
         width: 100%;
         height: 100%;
+        min-height: 400px;
+        display: block;
+        object-fit: contain;
         background: #000;
       }
 
@@ -131,34 +296,151 @@
         width: 100%;
         height: 100%;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
-        color: #aaa;
-        background: #111;
+        color: var(--light-muted);
+        background: rgba(2, 6, 23, 0.7);
+        gap: 1rem;
+        text-align: center;
+        padding: 2rem;
       }
 
-      .log {
-        background: #2c3e50;
-        color: #ecf0f1;
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 30px;
-        max-height: 250px;
+      .placeholder i {
+        font-size: 3.5rem;
+        opacity: 0.7;
+      }
+
+      .placeholder h3 {
+        font-weight: 600;
+        font-size: 1.5rem;
+        color: var(--light);
+      }
+
+      .placeholder p {
+        max-width: 400px;
+        line-height: 1.6;
+      }
+
+      .log-container {
+        margin-top: 1.5rem;
+        background: rgba(2, 6, 23, 0.5);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1.5rem;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+
+      .log-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .log-content {
+        background: rgba(2, 6, 23, 0.3);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        max-height: 200px;
         overflow-y: auto;
-        font-family: monospace;
-        font-size: 0.95rem;
+        font-family: "SF Mono", "Roboto Mono", monospace;
+        font-size: 0.875rem;
+        line-height: 1.6;
       }
 
       .log-entry {
-        margin-bottom: 10px;
+        margin-bottom: 0.75rem;
+        padding-left: 1.5rem;
+        position: relative;
+      }
+
+      .log-entry::before {
+        content: ">";
+        position: absolute;
+        left: 0;
+        color: var(--light-muted);
+      }
+
+      .log-entry.info {
+        color: var(--light);
+      }
+
+      .log-entry.success {
+        color: var(--success);
+      }
+
+      .log-entry.error {
+        color: var(--danger);
+      }
+
+      .log-entry.warning {
+        color: var(--warning);
       }
 
       footer {
+        padding: 1.5rem;
         text-align: center;
-        padding: 25px;
-        color: #777;
-        font-size: 1rem;
-        background: #f8f9fa;
+        color: var(--light-muted);
+        font-size: 0.875rem;
+        border-top: 1px solid var(--border);
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.2);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 4px;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 900px) {
+        .content {
+          flex-direction: column;
+        }
+
+        .video-container {
+          min-width: 100%;
+        }
+
+        .panel {
+          min-width: 100%;
+        }
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 1rem;
+        }
+
+        .container {
+          border-radius: 1rem;
+        }
+
+        header {
+          flex-direction: column;
+          gap: 1rem;
+          text-align: center;
+        }
+
+        .btn-group {
+          flex-direction: column;
+        }
       }
     </style>
 
@@ -169,45 +451,88 @@
   <body>
     <div class="container">
       <header>
-        <h1>Screen Sharing Viewer</h1>
-        <p class="subtitle">View Android screen shares in real-time</p>
+        <div class="logo">
+          <div class="logo-icon">
+            <i class="fas fa-display"></i>
+          </div>
+          <div class="logo-text">
+            <h1>Screen Sharing Viewer</h1>
+            <p>Real-time Android screen viewing</p>
+          </div>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-indicator" id="connectionStatus"></div>
+          <div class="status-text" id="statusText">
+            Disconnected from server
+          </div>
+        </div>
       </header>
 
-      <div class="status-bar">
-        <div class="status">
-          <div class="status-indicator" id="connectionStatus"></div>
-          <span id="statusText">Disconnected from server</span>
-        </div>
-        <div>Signaling Server: RTDB</div>
-      </div>
-
       <div class="content">
-        <div class="control-panel">
-          <label for="username">Viewer ID</label>
-          <input type="text" id="username" value="computer" />
+        <div class="panel">
+          <div class="card">
+            <h2 class="card-title">
+              <i class="fas fa-sliders"></i>
+              Connection Settings
+            </h2>
 
-          <label for="target">Streamer ID</label>
-          <input type="text" id="target" value="android-device" />
+            <div class="form-group">
+              <label for="username">Viewer ID</label>
+              <input
+                type="text"
+                id="username"
+                value="computer"
+                placeholder="Enter viewer ID"
+              />
+            </div>
 
-          <button id="requestBtn" disabled>Request Screen Share</button>
-          <div class="call-controls">
-            <button id="disconnectBtn" class="disconnect" disabled>
-              End Viewing
-            </button>
+            <div class="form-group">
+              <label for="target">Streamer ID</label>
+              <input
+                type="text"
+                id="target"
+                value="android-device"
+                placeholder="Enter streamer ID"
+              />
+            </div>
+
+            <div class="btn-group">
+              <button id="requestBtn" disabled>
+                <i class="fas fa-satellite-dish"></i>
+                Request Screen Share
+              </button>
+              <button id="disconnectBtn" class="disconnect" disabled>
+                <i class="fas fa-phone-slash"></i>
+                End Viewing
+              </button>
+            </div>
+          </div>
+
+          <div class="log-container">
+            <div class="log-header">
+              <div class="log-title">
+                <i class="fas fa-terminal"></i>
+                Connection Log
+              </div>
+            </div>
+            <div class="log-content" id="logContainer">
+              <div class="log-entry info">[System] Ready to connect</div>
+            </div>
           </div>
         </div>
 
         <div class="video-container">
           <video id="remoteVideo" autoplay playsinline></video>
           <div class="placeholder" id="videoPlaceholder">
-            No active screen share
+            <i class="fas fa-display"></i>
+            <h3>No Active Screen Share</h3>
+            <p>
+              Enter streamer ID and click "Request Screen Share" to begin
+              viewing an Android device screen
+            </p>
           </div>
         </div>
-      </div>
-
-      <div class="log">
-        <div class="log-entry">[System] Connection log:</div>
-        <div id="logContainer"></div>
       </div>
 
       <footer>
@@ -350,10 +675,9 @@
             updateUI("connected");
             break;
           case DataModelType.PermGranted:
-            alert("");
-            setTimeout(() => {
-              requestScreenShare();
-            }, 2000);
+            log("Permission Granted");
+
+            requestScreenShare();
 
             break;
         }
